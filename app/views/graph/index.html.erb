@@ -1,0 +1,66 @@
+<% content_for :javascript_includes do %>
+<%= javascript_include_tag "arbor.js" %>
+<%= javascript_include_tag "arbor-tween.js" %>
+<%= javascript_include_tag "graphics.js" %>
+<%= javascript_include_tag "renderer.js" %>
+<% end %>
+<div id="graph" style="margin-right: auto; margin-left: auto">
+	<div id='error' style="background-color: red; color: white; margin-right: auto; margin-left: auto; width: 400px" align="center"></div>
+	<canvas id="viewport" width="1200" height="400"></canvas>
+	<script language="javascript" type="text/javascript">
+				var colour = {
+		orange : "#EEB211",
+		darkblue : "#21526a",
+		purple : "#941e5e",
+		limegreen : "#c1d72e",
+		darkgreen : "#619b45",
+		lightblue : "#009fc3",
+		pink : "#d11b67",
+		black : "#000000"
+		};
+		var data = {
+		nodes : {<%= @user.id %> : {
+		label : '@<%= @user.screen_name %>',
+			color : colour.lightblue,
+			shape : 'dot',
+			radius : 50,
+			alpha : 1,
+			image : '<%= @user.profile_image_url_https %>',
+			image_h: 25,
+			image_w: 25
+			},
+			dummy1 : {
+			radius : 0,
+			alpha : 0,
+			},
+			dummy2 : {
+			radius : 0,
+			alpha : 0,
+			}
+			},
+			edges : {
+		<%= @user.id %>
+			: { dummy1: {
+				}, dummy2: {
+				}
+			}
+			}
+			}
+
+			// Initialise arbor
+			var sys = arbor.ParticleSystem()
+			sys.parameters({
+				stiffness : 900,
+				repulsion : 50,
+				gravity : false,
+				dt : 0.015
+			})
+			sys.renderer = Renderer("#viewport");
+			sys.graft(data);
+			/*
+			 var nav = Nav("#nav")
+			 $(sys.renderer).bind('navigate', nav.navigate)
+			 $(nav).bind('mode', sys.renderer.switchMode)
+			 nav.init()*/
+	</script>
+</div>

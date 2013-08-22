@@ -1,0 +1,11 @@
+development:
+  key: KwOKc18krMaG9jsg9YiLYg
+  secret: cGyZDqkdjWxzmErznyy5bEUprn01jltMx4UtdX5GBA
+
+test:
+  key: KwOKc18krMaG9jsg9YiLYg
+  secret: cGyZDqkdjWxzmErznyy5bEUprn01jltMx4UtdX5GBA
+
+production:
+  key: KwOKc18krMaG9jsg9YiLYg
+  secret: cGyZDqkdjWxzmErznyy5bEUprn01jltMx4UtdX5GBA
