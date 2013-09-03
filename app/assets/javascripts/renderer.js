@@ -357,8 +357,8 @@
 										clickedNode.data.followingPage++;
 									}
 
-								}).error(function() {
-									$msg = $.parseHTML("<div style=''>Cannot get friends of " + clickedNode.data.label + " at this moment</div>");
+								}).error(function(xhr) {
+									$msg = $.parseHTML("<div style=''>"+xhr.responseText+"</div>");
 									$('#error').prepend($msg);
 									$($msg).delay(5000).fadeOut(800, function() {
 										$(this).remove();
@@ -412,8 +412,8 @@
 										clickedNode.data.followerPage++;
 									}
 
-								}).error(function() {
-									$msg = $.parseHTML("<div style=''>Cannot get followers of " + clickedNode.data.label + " at this moment</div>");
+								}).error(function(xhr) {
+									$msg = $.parseHTML("<div style=''>"+xhr.responseText+"</div>");
 									$('#error').prepend($msg);
 									$($msg).delay(5000).fadeOut(800, function() {
 										$(this).remove();

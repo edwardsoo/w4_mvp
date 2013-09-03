@@ -1,5 +1,4 @@
 class GraphController < ApplicationController
-  
   def index
     if !current_user
       redirect_to '/login'
@@ -12,7 +11,7 @@ class GraphController < ApplicationController
         config.oauth_token = current_user.oauth_token
         config.oauth_token_secret = current_user.oauth_secret
       end
-      
+
       @user = current_user
       render "index"
     end
@@ -32,6 +31,12 @@ class GraphController < ApplicationController
         page = params[:page]
       else
         page = '0'
+      end
+
+      info = self.get_twitter_user_info(current_user, uid)
+      if info[:friends_count].to_i >= 5000
+        render :status => :forbidden, :text => "#{info[:screen_name]} has too many friends"
+      return
       end
 
       cacheKey = "twitter_friends_" + uid.to_s;
@@ -59,7 +64,7 @@ class GraphController < ApplicationController
             # Try to find from db
             @db_following = Following.find_by_uid(uid.to_s)
             if @db_following.nil?
-              render :status => :forbidden, :text => "API rate limit exceeded"
+              render :status => :forbidden, :text => "Twitter API limit exceeded, cannot get friends of " + info[:screen_name]
             return
             else
               @friends = @db_following.json
@@ -87,6 +92,12 @@ class GraphController < ApplicationController
         page = '0'
       end
 
+      info = self.get_twitter_user_info(current_user, uid)
+      if info[:followers_count].to_i >= 5000
+        render :status => :forbidden, :text => "#{info[:screen_name]} has too many followers"
+      return
+      end
+
       cacheKey = "twitter_followers_" + uid.to_s;
 
       # Try to read from cache
@@ -104,7 +115,7 @@ class GraphController < ApplicationController
           end
           follower = Follower.new(:uid => uid.to_s, :json => @followers.to_json)
           follower.save
-          Rails.cache.write(cacheKey, @followers.to_json, tti: 0.seconds, ttl: 600.seconds)
+          Rails.cache.write(cacheKey, @followers.to_json, tti: 0.seconds, ttl: 1.day)
           render json: @followers.slice(page.to_i * 10, (page.to_i + 1) * 10 )
           return
         rescue Twitter::Error
@@ -112,7 +123,7 @@ class GraphController < ApplicationController
             # Try to find from db
             @db_followers = Follower.find_by_uid(uid.to_s)
             if @db_followers.nil?
-              render :status => :forbidden, :text => "API rate limit exceeded"
+              render :status => :forbidden, :text => "Twitter API rate exceeded, cannot get followers of " + info[:screen_name]
             return
             else
               @followers = @db_followers.json
@@ -136,14 +147,24 @@ class GraphController < ApplicationController
     return Twitter.users(ids, {:include_entities  => false})
   end
 
-  def get_twitter_user(user, id)
-    Twitter.configure do |config|
-      config.consumer_key = TWITTER_CONFIG['key']
-      config.consumer_secret = TWITTER_CONFIG['secret']
-      config.oauth_token = current_user.oauth_token
-      config.oauth_token_secret = current_user.oauth_secret
+  def get_twitter_user_info(user, id)
+    cacheKey = "twitter_user_info_" + id.to_s;
+    data = Rails.cache.read(cacheKey);
+
+    if (data.nil?)
+      Twitter.configure do |config|
+        config.consumer_key = TWITTER_CONFIG['key']
+        config.consumer_secret = TWITTER_CONFIG['secret']
+        config.oauth_token = current_user.oauth_token
+        config.oauth_token_secret = current_user.oauth_secret
+      end
+      u = Twitter.user(id.to_i, {:skip_status => 1})
+      info = {:screen_name => u.screen_name, :id => u.id, :friends_count => u.friends_count, :followers_count => u.followers_count}
+      Rails.cache.write(cacheKey, info.to_json, tti: 0.seconds, ttl: 1.day)
+    else
+      info = JSON.parse(data, :symbolize_names => true)
     end
-    return Twitter.user(id.to_i, {:skip_status => 1})
+    return info
   end
 
   def get_twitter_friend_ids(user, id)
