@@ -1,4 +1,5 @@
 class GraphController < ApplicationController
+  
   def index
     if !current_user
       redirect_to '/login'
@@ -11,34 +12,9 @@ class GraphController < ApplicationController
         config.oauth_token = current_user.oauth_token
         config.oauth_token_secret = current_user.oauth_secret
       end
-      @user = Twitter.user
+      
+      @user = current_user
       render "index"
-    end
-  end
-
-  def user
-    if !current_user
-      redirect_to '/login'
-    else
-      if params[:id].present?
-        uid = params[:id]
-      else
-        uid = current_user.uid
-      end
-
-      cacheKey = "twitter_user_" + uid.to_s;
-      @user = Rails.cache.read(cacheKey);
-      if (@user.nil?)
-        begin
-          result = self.get_twitter_user(current_user, uid)
-          @user = {:screen_name => result.screen_name, :id => result.id, :profile_image_url_https => result.profile_image_url_https}
-          Rails.cache.write(cacheKey, @user.to_json, tti: 0.seconds, ttl: 1.day)
-        rescue Twitter::Error
-          render :status => :forbidden, :text => "API rate limit exceeded"
-        return
-        end
-      end
-      render json: @user
     end
   end
 
@@ -79,7 +55,7 @@ class GraphController < ApplicationController
           render json: @friends.slice(page.to_i * 10, (page.to_i + 1) * 10 )
           return
         rescue Twitter::Error
-          if @friends.empty
+          if @friends.empty?
             # Try to find from db
             @db_following = Following.find_by_uid(uid.to_s)
             if @db_following.nil?
@@ -132,7 +108,7 @@ class GraphController < ApplicationController
           render json: @followers.slice(page.to_i * 10, (page.to_i + 1) * 10 )
           return
         rescue Twitter::Error
-          if @followers.empty
+          if @followers.empty?
             # Try to find from db
             @db_followers = Follower.find_by_uid(uid.to_s)
             if @db_followers.nil?

@@ -6,6 +6,7 @@
 		var ctx = canvas.getContext("2d")
 		var gfx = arbor.Graphics(canvas)
 		var particleSystem = null
+		var removedDirections = false;
 
 		var selected = null, nearest = null, _mouseP = null;
 
@@ -18,14 +19,12 @@
 				return
 
 			// Load extra info
-			var imageob = node.data.imageob
-			var imageH = node.data.image_h
-			var imageW = node.data.image_w
-			var radius = parseInt(node.data.radius)
+			var imageob = node.data.imageob;
+			var radius = parseInt(node.data.radius);
 			// determine the box size and round off the coords if we'll be
 			// drawing a text label (awful alignment jitter otherwise...)
-			var label = node.data.label || ""
-			var w = ctx.measureText("" + label).width + 20
+			var label = node.data.label || "";
+			var w = ctx.measureText("" + label).width + 20;
 			if (w < radius) {
 				w = radius;
 			} else {
@@ -71,7 +70,9 @@
 				// Does it have an image?
 				if (imageob) {
 					// Images are cached
-					ctx.drawImage(imageob, pt.x - (imageW / 2), pt.y - 25, imageW, imageH)
+					var img_x = Math.max(0, pt.x - 13);
+					var img_y = Math.max(0, pt.y - 25);
+					ctx.drawImage(imageob, img_x, img_y, 26, 26)
 				}
 			} else {
 				// If none of the above, draw a rectangle
@@ -89,7 +90,7 @@
 				ctx.lineWidth = 1;
 				ctx.fillStyle = "white";
 				ctx.strokeStyle = 'black';
-				var y_offset = node.data.shape == 'dot' ? 10 : 4;
+				var y_offset = node.data.shape == 'dot' ? 12 : 4;
 				ctx.fillText(label || "", pt.x, pt.y + y_offset);
 			}
 
@@ -200,7 +201,7 @@
 
 			resize : function() {
 				canvas.width = $(window).width()
-				canvas.height = .75 * $(window).height()
+				canvas.height = .8 * $(window).height()
 				sys.screen({
 					size : {
 						width : canvas.width,
@@ -301,9 +302,16 @@
 
 						if (nearest && nearest.node && jQuery.isNumeric(nearest.node.name)) {
 							var clickedNode = nearest.node
-							// Remove direction
-							if (sys.getNode('click'))
-								sys.pruneNode('click');
+							// Remove directions
+							if (!removedDirections) {
+								if (sys.getNode('click'))
+									sys.pruneNode('click');
+								if (sys.getNode('user'))
+									sys.pruneNode('user');
+								if (sys.getNode('border'))
+									sys.pruneNode('border');
+								removedDirections = true;
+							}
 
 							// Get Followings
 							if (!clickedNode.data.followingExpanded && !clickedNode.data.followingLoading) {
@@ -329,11 +337,9 @@
 												label : '@' + value.screen_name,
 												color : colour.orange,
 												shape : 'dot',
-												radius : 50,
+												radius : 70,
 												alpha : 1,
 												image : value.profile_image_url_https,
-												image_h : 25,
-												image_w : 25
 											});
 
 											if (node.data.image) {
@@ -352,9 +358,10 @@
 									}
 
 								}).error(function() {
-									$('#error').text("Exceeded the Twitter API rate limit");
-									$('#error').show(function() {
-										$(this).delay(5000).fadeOut();
+									$msg = $.parseHTML("<div style=''>Cannot get friends of " + clickedNode.data.label + " at this moment</div>");
+									$('#error').prepend($msg);
+									$($msg).delay(5000).fadeOut(800, function() {
+										$(this).remove();
 									});
 								}).complete(function() {
 									clickedNode.data.followingLoading = false;
@@ -385,11 +392,9 @@
 												label : '@' + value.screen_name,
 												color : colour.orange,
 												shape : 'dot',
-												radius : 50,
+												radius : 70,
 												alpha : 1,
 												image : value.profile_image_url_https,
-												image_h : 25,
-												image_w : 25
 											});
 
 											if (node.data.image) {
@@ -408,9 +413,10 @@
 									}
 
 								}).error(function() {
-									$('#error').text("Exceeded the Twitter API rate limit");
-									$('#error').show(function() {
-										$(this).delay(5000).fadeOut();
+									$msg = $.parseHTML("<div style=''>Cannot get followers of " + clickedNode.data.label + " at this moment</div>");
+									$('#error').prepend($msg);
+									$($msg).delay(5000).fadeOut(800, function() {
+										$(this).remove();
 									});
 								}).complete(function() {
 									clickedNode.data.followerLoading = false;

@@ -4,6 +4,7 @@
 <%= javascript_include_tag "graphics.js" %>
 <%= javascript_include_tag "renderer.js" %>
 <% end %>
+
 <div id="graph" style="margin-right: auto; margin-left: auto">
 	<div id='error' style="background-color: red; color: white; margin-right: auto; margin-left: auto; width: 400px" align="center"></div>
 	<canvas id="viewport" width="1200" height="400"></canvas>
@@ -20,37 +21,46 @@
 		};
 		var data = {
 		nodes : {
-			<%= @user.id %> : {
-			label : '@<%= @user.screen_name %>',
+			<%= @user.uid %> : {
+			label : '@<%= @user.username %>',
 			color : colour.lightblue,
 			shape : 'dot',
-			radius : 50,
+			radius : 70,
 			alpha : 1,
-			image : '<%= @user.profile_image_url_https %>',
-			image_h: 25,
-			image_w: 25
+			image : '<%= @user.profileImage %>',
 			},
 		click: {
-			label : "click your profile to start!",
+			label : "Click a Twitter profile to show its connections",
 			color : colour.pink,
 			alpha : 1,
 			},
-			dummy1 : {
-			alpha : 0,
+		user: {
+			label : "Your profile is blue while others are orange",
+			color : colour.darkblue,
+			alpha : 1,
 			},
-			dummy2 : {
-			alpha : 0,
-			}
+		border: {
+			label : "Green border means there are more connections",
+			color : colour.darkgreen,
+			alpha : 1,
+		},
+		dummy: {alpha : 0,}
 			},
 			edges : {
 				click: {
-					<%= @user.id %>: { 
-						dummy1: {}, 
-						dummy2: {}
+					<%= @user.uid %>: {
+					}
+				},
+				border: {
+					<%= @user.uid %>: {
+						}
+				},
+				user: {
+					<%= @user.uid %>: {
 						}
 				}
 			}
-		}
+		};
 
 			// Initialise arbor
 			var sys = arbor.ParticleSystem()
@@ -59,7 +69,7 @@
 				repulsion : 50,
 				gravity : false,
 				dt : 0.005
-			})
+			});
 			sys.renderer = Renderer("#viewport");
 			sys.graft(data);
 			/*
