@@ -32,7 +32,7 @@ class GraphController < ApplicationController
         begin
           result = self.get_twitter_user(!current_user, uid)
           @user = {:screen_name => result.screen_name, :id => result.id, :profile_image_url_https => result.profile_image_url_https}
-          Rails.cache.write(cacheKey, @user.to_json, tti: 0.seconds, ttl: 600.seconds)
+          Rails.cache.write(cacheKey, @user.to_json, tti: 0.seconds, ttl: 1.day)
         rescue Twitter::Error
           render :status => :forbidden, :text => "API rate limit exceeded"
           return
@@ -66,7 +66,7 @@ class GraphController < ApplicationController
           end
           following = Following.new(:uid => uid.to_s, :json => @friends.to_json)
           following.save
-          Rails.cache.write(cacheKey, @friends.to_json, tti: 0.seconds, ttl: 600.seconds)
+          Rails.cache.write(cacheKey, @friends.to_json, tti: 0.seconds, ttl: 1.day)
         rescue Twitter::Error
           # Try to find from db
           @following = Following.find_by_uid(uid.to_s)

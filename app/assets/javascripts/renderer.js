@@ -9,6 +9,147 @@
 
 		var selected = null, nearest = null, _mouseP = null;
 
+		var nodeFn = function(node, pt) {
+			// node: {mass:#, p:{x,y}, name:"", data:{}}
+			// pt:   {x:#, y:#}  node position in screen coords
+
+			// Hide hidden nodes
+			if (node.data.alpha === 0)
+				return
+
+			// Load extra info
+			var imageob = node.data.imageob
+			var imageH = node.data.image_h
+			var imageW = node.data.image_w
+			var radius = parseInt(node.data.radius)
+			// determine the box size and round off the coords if we'll be
+			// drawing a text label (awful alignment jitter otherwise...)
+			var label = node.data.label || ""
+			var w = ctx.measureText("" + label).width + 20
+			if (w < radius) {
+				w = radius;
+			} else {
+				node.data.radius = w;
+			}
+			if (!("" + label).match(/^[ \t]*$/)) {
+				pt.x = Math.floor(pt.x)
+				pt.y = Math.floor(pt.y)
+			} else {
+				label = null
+			}
+
+			// Set colour
+			if (node.data.color)
+				ctx.fillStyle = node.data.color
+			else
+				ctx.fillStyle = "rgba(0,0,0,.2)"
+			if (node.data.color == 'none')
+				ctx.fillStyle = "white"
+
+			// Draw the object
+			if (node.data.shape == 'dot') {
+				// Check if it's a dot
+				gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
+					fill : ctx.fillStyle,
+					alpha : node.data.alpha
+				})
+				nodeBoxes[node.name] = [pt.x - w / 2, pt.y - w / 2, w, w]
+				// Does it have an image?
+				if (imageob) {
+					// Images are cached
+					ctx.drawImage(imageob, pt.x - (imageW / 2), pt.y - 25, imageW, imageH)
+				}
+			} else {
+				// If none of the above, draw a rectangle
+				gfx.rect(pt.x - w / 2, pt.y - 10, w, 20, 4, {
+					fill : ctx.fillStyle,
+					alpha : node.data.alpha
+				})
+				nodeBoxes[node.name] = [pt.x - w / 2, pt.y - 11, w, 22]
+			}
+
+			// Draw the text
+			if (label) {
+				ctx.font = "12px Helvetica";
+				ctx.textAlign = "center";
+				ctx.lineWidth = 1;
+				ctx.fillStyle = "white";
+				ctx.strokeStyle = 'black';
+				var y_offset = node.data.shape == 'dot' ? 10 : 4;
+				ctx.fillText(label || "", pt.x, pt.y + y_offset);
+			}
+
+		}, edgeFn = function(edge, pt1, pt2) {
+			// edge: {source:Node, target:Node, length:#, data:{}}
+			// pt1:  {x:#, y:#}  source position in screen coords
+			// pt2:  {x:#, y:#}  target position in screen coords
+
+			// Don't draw lines that shouldn't be there
+			if (edge.source.data.alpha * edge.target.data.alpha == 0)
+				return;
+			// gfx.line(pt1, pt2, {
+			// stroke : colour.black,
+			// width : 2,
+			// alpha : edge.target.data.alpha
+			// });
+
+			// edge: {source:Node, target:Node, length:#, data:{}}
+			// pt1:  {x:#, y:#}  source position in screen coords
+			// pt2:  {x:#, y:#}  target position in screen coords
+
+			var weight = 0;
+			var color = colour.black;
+
+			// trace(color)
+			if (!color || ("" + color).match(/^[ \t]*$/))
+				color = null
+
+			// find the start point
+			if (edge.source.data.shape == 'dot')
+				var tail = intersect_line_dot(pt2, pt1, edge.source.data.radius);
+			else
+				var tail = intersect_line_box(pt2, pt1, nodeBoxes[edge.source.name]);
+			var head = intersect_line_dot(pt1, pt2, edge.target.data.radius);
+
+			ctx.save()
+			ctx.beginPath()
+
+			if (!isNaN(weight))
+				ctx.lineWidth = weight
+			if (color)
+				ctx.strokeStyle = color
+			// if (color) trace(color)
+			ctx.fillStyle = null
+
+			ctx.moveTo(tail.x, tail.y)
+			ctx.lineTo(head.x, head.y)
+			ctx.stroke()
+			ctx.restore()
+
+			ctx.save()
+			// move to the head position of the edge we just drew
+			var wt = !isNaN(weight) ? parseFloat(weight) : ctx.lineWidth
+			var arrowLength = 6 + wt
+			var arrowWidth = 2 + wt
+			ctx.fillStyle = (color) ? color : ctx.strokeStyle
+			ctx.translate(head.x, head.y);
+			ctx.rotate(Math.atan2(head.y - tail.y, head.x - tail.x));
+
+			// delete some of the edge that's already there (so the point isn't hidden)
+			ctx.clearRect(-arrowLength / 2, -wt / 2, arrowLength / 2, wt)
+
+			// draw the chevron
+			ctx.beginPath();
+			ctx.moveTo(-arrowLength, arrowWidth);
+			ctx.lineTo(0, 0);
+			ctx.lineTo(-arrowLength, -arrowWidth);
+			ctx.lineTo(-arrowLength * 0.8, -0);
+			ctx.closePath();
+			ctx.fill();
+			ctx.restore()
+
+		}, nodeBoxes = {};
+
 		// Main output section
 		var that = {
 			init : function(system) {
@@ -25,6 +166,9 @@
 						node.data.imageob.src = node.data.image;
 					}
 				});
+
+				// Set nodeBoxes
+				particleSystem.eachNode(nodeFn);
 
 				$(window).resize(that.resize);
 				that.resize();
@@ -46,147 +190,12 @@
 				gfx.clear();
 				// convenience ƒ: clears the whole canvas rect
 				// draw the nodes & save their bounds for edge drawing
-				var nodeBoxes = {};
 
 				// draw the edges
-				particleSystem.eachEdge(function(edge, pt1, pt2) {
-					// edge: {source:Node, target:Node, length:#, data:{}}
-					// pt1:  {x:#, y:#}  source position in screen coords
-					// pt2:  {x:#, y:#}  target position in screen coords
+				particleSystem.eachEdge(edgeFn);
 
-					// Don't draw lines that shouldn't be there
-					if (edge.source.data.alpha * edge.target.data.alpha == 0)
-						return;
-					// gfx.line(pt1, pt2, {
-					// stroke : colour.black,
-					// width : 2,
-					// alpha : edge.target.data.alpha
-					// });
-
-					// edge: {source:Node, target:Node, length:#, data:{}}
-					// pt1:  {x:#, y:#}  source position in screen coords
-					// pt2:  {x:#, y:#}  target position in screen coords
-
-					var weight = 0;
-					var color = colour.black;
-
-					// trace(color)
-					if (!color || ("" + color).match(/^[ \t]*$/))
-						color = null
-
-					// find the start point
-					var tail = intersect_line_dot(pt2, pt1, edge.source.data.radius)
-					var head = intersect_line_dot(pt1, pt2, edge.target.data.radius)
-
-					ctx.save()
-					ctx.beginPath()
-
-					if (!isNaN(weight))
-						ctx.lineWidth = weight
-					if (color)
-						ctx.strokeStyle = color
-					// if (color) trace(color)
-					ctx.fillStyle = null
-
-					ctx.moveTo(tail.x, tail.y)
-					ctx.lineTo(head.x, head.y)
-					ctx.stroke()
-					ctx.restore()
-
-					ctx.save()
-					// move to the head position of the edge we just drew
-					var wt = !isNaN(weight) ? parseFloat(weight) : ctx.lineWidth
-					var arrowLength = 6 + wt
-					var arrowWidth = 2 + wt
-					ctx.fillStyle = (color) ? color : ctx.strokeStyle
-					ctx.translate(head.x, head.y);
-					ctx.rotate(Math.atan2(head.y - tail.y, head.x - tail.x));
-
-					// delete some of the edge that's already there (so the point isn't hidden)
-					ctx.clearRect(-arrowLength / 2, -wt / 2, arrowLength / 2, wt)
-
-					// draw the chevron
-					ctx.beginPath();
-					ctx.moveTo(-arrowLength, arrowWidth);
-					ctx.lineTo(0, 0);
-					ctx.lineTo(-arrowLength, -arrowWidth);
-					ctx.lineTo(-arrowLength * 0.8, -0);
-					ctx.closePath();
-					ctx.fill();
-					ctx.restore()
-
-				});
 				// draw the nodes
-				particleSystem.eachNode(function(node, pt) {
-					// node: {mass:#, p:{x,y}, name:"", data:{}}
-					// pt:   {x:#, y:#}  node position in screen coords
-
-					// Hide hidden nodes
-					if (node.data.alpha === 0)
-						return
-
-					// Load extra info
-					var imageob = node.data.imageob
-					var imageH = node.data.image_h
-					var imageW = node.data.image_w
-					var radius = parseInt(node.data.radius)
-					// determine the box size and round off the coords if we'll be
-					// drawing a text label (awful alignment jitter otherwise...)
-					var label = node.data.label || ""
-					var w = ctx.measureText("" + label).width + 20
-					if (w < radius) {
-						w = radius;
-					} else {
-						node.data.radius = w;
-					}
-					if (!("" + label).match(/^[ \t]*$/)) {
-						pt.x = Math.floor(pt.x)
-						pt.y = Math.floor(pt.y)
-					} else {
-						label = null
-					}
-
-					// Set colour
-					if (node.data.color)
-						ctx.fillStyle = node.data.color
-					else
-						ctx.fillStyle = "rgba(0,0,0,.2)"
-					if (node.data.color == 'none')
-						ctx.fillStyle = "white"
-
-					// Draw the object
-					if (node.data.shape == 'dot') {
-						// Check if it's a dot
-						gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
-							fill : ctx.fillStyle,
-							alpha : node.data.alpha
-						})
-						nodeBoxes[node.name] = [pt.x - w / 2, pt.y - w / 2, w, w]
-						// Does it have an image?
-						if (imageob) {
-							// Images are cached
-							ctx.drawImage(imageob, pt.x - (imageW / 2), pt.y - 25, imageW, imageH)
-						}
-					} else {
-						// If none of the above, draw a rectangle
-						gfx.rect(pt.x - w / 2, pt.y - 10, w, 20, 4, {
-							fill : ctx.fillStyle,
-							alpha : node.data.alpha
-						})
-						nodeBoxes[node.name] = [pt.x - w / 2, pt.y - 11, w, 22]
-					}
-
-					// Draw the text
-					if (label) {
-						ctx.font = "12px Helvetica";
-						ctx.textAlign = "center";
-						ctx.lineWidth = 1;
-						ctx.fillStyle = "white";
-						ctx.strokeStyle = 'black';
-						ctx.fillText(label || "", pt.x, pt.y + 10);
-					}
-
-				});
+				particleSystem.eachNode(nodeFn);
 			},
 			switchMode : function(e) {
 				if (e.mode == 'hidden') {
@@ -267,7 +276,10 @@
 						nearest = dragged = sys.nearest(_mouseP);
 
 						if (nearest && nearest.node && jQuery.isNumeric(nearest.node.name)) {
-
+							// Remove direction
+							if (sys.getNode('click'))
+								sys.pruneNode('click');
+								
 							// Get Followings
 							if (!nearest.node.data.followingExpanded && !nearest.node.data.followingLoading) {
 								nearest.node.data.followingLoading = true;
@@ -313,7 +325,7 @@
 									nearest.node.data.followingLoading = false;
 								});
 							}
-							
+
 							// Get Followers
 							if (!nearest.node.data.followerExpanded && !nearest.node.data.followerLoading) {
 								nearest.node.data.followerLoading = true;

@@ -19,8 +19,9 @@
 		black : "#000000"
 		};
 		var data = {
-		nodes : {<%= @user.id %> : {
-		label : '@<%= @user.screen_name %>',
+		nodes : {
+			<%= @user.id %> : {
+			label : '@<%= @user.screen_name %>',
 			color : colour.lightblue,
 			shape : 'dot',
 			radius : 50,
@@ -29,23 +30,27 @@
 			image_h: 25,
 			image_w: 25
 			},
+		click: {
+			label : "click your profile to start!",
+			color : colour.pink,
+			alpha : 1,
+			},
 			dummy1 : {
-			radius : 0,
 			alpha : 0,
 			},
 			dummy2 : {
-			radius : 0,
 			alpha : 0,
 			}
 			},
 			edges : {
-		<%= @user.id %>
-			: { dummy1: {
-				}, dummy2: {
+				click: {
+					<%= @user.id %>: { 
+						dummy1: {}, 
+						dummy2: {}
+						}
 				}
 			}
-			}
-			}
+		}
 
 			// Initialise arbor
 			var sys = arbor.ParticleSystem()
