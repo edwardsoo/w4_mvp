@@ -48,11 +48,25 @@
 
 			// Draw the object
 			if (node.data.shape == 'dot') {
-				// Check if it's a dot
-				gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
+
+				// red or green border
+
+				if (!node.data.followerExpanded || !node.data.followingExpanded) {
+					gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
+						fill : 'green',
+						alpha : 1
+					});
+				} else {
+					gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
+						fill : 'red',
+						alpha : 1
+					});
+				}
+
+				gfx.oval(pt.x - w / 2 + 2, pt.y - w / 2 + 2, w - 4, w - 4, {
 					fill : ctx.fillStyle,
 					alpha : node.data.alpha
-				})
+				});
 				nodeBoxes[node.name] = [pt.x - w / 2, pt.y - w / 2, w, w]
 				// Does it have an image?
 				if (imageob) {
@@ -77,6 +91,16 @@
 				ctx.strokeStyle = 'black';
 				var y_offset = node.data.shape == 'dot' ? 10 : 4;
 				ctx.fillText(label || "", pt.x, pt.y + y_offset);
+			}
+
+			if (node.data.followingLoading || node.data.followerLoading) {
+				gfx.oval(pt.x - w / 2, pt.y - w / 2, w, w, {
+					fill : 'white',
+					alpha : 0.7
+				});
+				ctx.font = "16px Helvetica";
+				ctx.fillStyle = "black";
+				ctx.fillText("loading...", pt.x, pt.y + 3);
 			}
 
 		}, edgeFn = function(edge, pt1, pt2) {
@@ -276,17 +300,23 @@
 						nearest = dragged = sys.nearest(_mouseP);
 
 						if (nearest && nearest.node && jQuery.isNumeric(nearest.node.name)) {
+							var clickedNode = nearest.node
 							// Remove direction
 							if (sys.getNode('click'))
 								sys.pruneNode('click');
-								
+
 							// Get Followings
-							if (!nearest.node.data.followingExpanded && !nearest.node.data.followingLoading) {
-								nearest.node.data.followingLoading = true;
+							if (!clickedNode.data.followingExpanded && !clickedNode.data.followingLoading) {
+								clickedNode.data.followingLoading = true;
+
+								if (clickedNode.data.followingPage == null)
+									clickedNode.data.followingPage = 0;
+
 								$.ajax({
 									url : "graph/friends",
 									data : {
-										id : nearest.node.name
+										id : clickedNode.name,
+										page : clickedNode.data.followingPage
 									},
 								}).success(function(data) {
 
@@ -312,9 +342,14 @@
 											}
 										}
 
-										sys.addEdge(nearest.node, node);
+										sys.addEdge(clickedNode, node);
 									});
-									nearest.node.data.followingExpanded = true;
+
+									if (data.length < 10) {
+										clickedNode.data.followingExpanded = true;
+									} else {
+										clickedNode.data.followingPage++;
+									}
 
 								}).error(function() {
 									$('#error').text("Exceeded the Twitter API rate limit");
@@ -322,17 +357,22 @@
 										$(this).delay(5000).fadeOut();
 									});
 								}).complete(function() {
-									nearest.node.data.followingLoading = false;
+									clickedNode.data.followingLoading = false;
 								});
 							}
 
 							// Get Followers
-							if (!nearest.node.data.followerExpanded && !nearest.node.data.followerLoading) {
-								nearest.node.data.followerLoading = true;
+							if (!clickedNode.data.followerExpanded && !clickedNode.data.followerLoading) {
+								clickedNode.data.followerLoading = true;
+
+								if (clickedNode.data.followerPage == null)
+									clickedNode.data.followerPage = 0;
+
 								$.ajax({
 									url : "graph/followers",
 									data : {
-										id : nearest.node.name
+										id : clickedNode.name,
+										page : clickedNode.data.followerPage
 									},
 								}).success(function(data) {
 
@@ -358,9 +398,14 @@
 											}
 										}
 
-										sys.addEdge(node, nearest.node);
+										sys.addEdge(node, clickedNode);
 									});
-									nearest.node.data.followerExpanded = true;
+
+									if (data.length < 10) {
+										clickedNode.data.followerExpanded = true;
+									} else {
+										clickedNode.data.followerPage++;
+									}
 
 								}).error(function() {
 									$('#error').text("Exceeded the Twitter API rate limit");
@@ -368,7 +413,7 @@
 										$(this).delay(5000).fadeOut();
 									});
 								}).complete(function() {
-									nearest.node.data.followerLoading = false;
+									clickedNode.data.followerLoading = false;
 								});
 							}
 						}
